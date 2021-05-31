@@ -15,7 +15,7 @@ kotlin {
         else
             ::iosX64
 
-    iosTarget("ios") {
+    val ios = iosTarget("ios") {
         binaries {
             framework {
                 baseName = "Shared"
@@ -44,6 +44,19 @@ kotlin {
         val iosMain by getting
         val iosTest by getting
     }
+
+    val packForXcode by tasks.creating(Sync::class) {
+        val mode = System.getenv("CONFIGURATION") ?: "DEBUG"
+        val framework = ios.binaries.getFramework(mode)
+        val targetDir = File(buildDir, "xcode-frameworks")
+
+        group = "build"
+        dependsOn(framework.linkTask)
+        inputs.property("mode", mode)
+
+        from({ framework.outputDirectory })
+        into(targetDir)
+    }
 }
 
 android {
@@ -55,19 +68,6 @@ android {
     }
 }
 
-val packForXcode by tasks.creating(Sync::class) {
-    val mode = System.getenv("CONFIGURATION") ?: "DEBUG"
-    val framework = kotlin.targets.getByName<KotlinNativeTarget>("ios").binaries.getFramework(mode)
-    val targetDir = File(buildDir, "xcode-frameworks")
-
-    group = "build"
-    dependsOn(framework.linkTask)
-    inputs.property("mode", mode)
-
-    from({ framework.outputDirectory })
-    into(targetDir)
-}
-
 multiplatformSwiftPackage {
     swiftToolsVersion("5.3")
     targetPlatforms {
@@ -75,9 +75,18 @@ multiplatformSwiftPackage {
     }
     outputDirectory(File(buildDir, "swift-package"))
     val VERSION_NAME: String by project
-    version =  VERSION_NAME
+//    version =  VERSION_NAME
+    zipFileName("Shared.xcframework")
     distributionMode { remote("https://github.com/kingsleyadio/kmm-playground/releases/download/$VERSION_NAME") }
 }
+
+//val packForCarthage by tasks.registering(Zip::class) {
+//    val createXCFramework by tasks.getting(Exec::class)
+//    dependsOn(createXCFramework)
+//    from({ "$buildDir/swift-package" })
+//    archiveBaseName.set("Shared.xcframework.zip")
+//    destinationDirectory.set(File(buildDir, "carthage-frameworks"))
+//}
 
 //tasks.getByName("build").dependsOn(packForXcode)
 tasks.getByName("build").dependsOn("createSwiftPackage")
