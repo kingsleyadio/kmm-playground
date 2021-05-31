@@ -1,0 +1,37 @@
+on:
+  release:
+    types: [published]
+
+name: Upload Release Asset
+
+jobs:
+  publish-release:
+    name: Publish release
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Build project
+        run: |
+          export NEW_VERSION=$(echo "${GITHUB_REF}" | cut -d "/" -f3)
+          echo "New version: ${NEW_VERSION}"
+          echo "Github username: ${GITHUB_ACTOR}"
+          export SDK_NAME=iphoneos
+          export CONFIGURATION=RELEASE
+          ./gradlew clean -PVERSION_NAME=${NEW_VERSION} -x test -x lint build
+      - name: Upload Release Asset
+        id: upload-release-asset
+        uses: AButler/upload-release-assets@v2.0
+        with:
+          files: 'shared/build/swift-package/*'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          release-tag:  ${{ NEW_VERSION }}
+      - name: Publish Android binaries
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+          # The GITHUB_REF tag comes in the format 'refs/tags/xxx'.
+          # If we split on '/' and take the 3rd value,
+          # we can get the release name.
+        run: |
+          # ./gradlew publish

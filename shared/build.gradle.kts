@@ -74,7 +74,9 @@ multiplatformSwiftPackage {
         iOS { v("13") }
     }
     outputDirectory(File(buildDir, "swift-package"))
-    distributionMode { remote("https://github.com/kingsleyadio/kmm-playground/master") }
+    val VERSION_NAME: String by project
+    version =  VERSION_NAME
+    distributionMode { remote("https://github.com/kingsleyadio/kmm-playground/releases/download/$VERSION_NAME") }
 }
 
 tasks.getByName("build").dependsOn(packForXcode)
