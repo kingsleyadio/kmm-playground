@@ -79,4 +79,5 @@ multiplatformSwiftPackage {
     distributionMode { remote("https://github.com/kingsleyadio/kmm-playground/releases/download/$VERSION_NAME") }
 }
 
-tasks.getByName("build").dependsOn(packForXcode)
+//tasks.getByName("build").dependsOn(packForXcode)
+tasks.getByName("build").dependsOn("createSwiftPackage")

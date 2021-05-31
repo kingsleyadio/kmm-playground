@@ -17,7 +17,7 @@ jobs:
           echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
           echo "New version: ${NEW_VERSION}"
           echo "Github username: ${GITHUB_ACTOR}"
-          ./gradlew clean -PVERSION_NAME=${NEW_VERSION} -x test -x lint build
+          ./gradlew clean -PVERSION_NAME=${NEW_VERSION} -x test -x lint createSwiftPackage
         env:
           SDK_NAME: iphoneos
           CONFIGURATION: RELEASE
