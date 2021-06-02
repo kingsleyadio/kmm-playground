@@ -68,16 +68,40 @@ android {
     }
 }
 
+val VERSION_NAME: String by project
+val swiftPackageDirectory = File(buildDir, "swift-package")
+val remoteReleaseDir = "https://github.com/kingsleyadio/kmm-playground/releases/download/$VERSION_NAME"
+
 multiplatformSwiftPackage {
     swiftToolsVersion("5.3")
     targetPlatforms {
         iOS { v("13") }
     }
-    outputDirectory(File(buildDir, "swift-package"))
-    val VERSION_NAME: String by project
+    outputDirectory(swiftPackageDirectory)
 //    version =  VERSION_NAME
     zipFileName("Shared.xcframework")
-    distributionMode { remote("https://github.com/kingsleyadio/kmm-playground/releases/download/$VERSION_NAME") }
+    distributionMode { remote(remoteReleaseDir) }
+}
+
+val generateIosArtefacts by  tasks.creating(Sync::class) {
+    val outputDir = File(buildDir, "ios-framework")
+    dependsOn("createSwiftPackage")
+    from(swiftPackageDirectory)
+    into(outputDir)
+    doLast {
+        val zipFile = outputDir.listFiles { f: File -> f.extension == "zip" }?.firstOrNull()
+        if (zipFile != null) {
+            File(outputDir, "Shared.json")
+                .writer()
+                .use {
+                    it.write("""
+                    {
+                        "$VERSION_NAME": "$remoteReleaseDir/${zipFile.name}"
+                    }
+                """.trimIndent())
+                }
+        }
+    }
 }
 
 //val packForCarthage by tasks.registering(Zip::class) {
