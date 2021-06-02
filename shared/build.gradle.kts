@@ -1,4 +1,6 @@
+import org.jetbrains.kotlin.gradle.plugin.mpp.Framework
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
+import org.jetbrains.kotlin.gradle.tasks.FatFrameworkTask
 
 plugins {
     kotlin("multiplatform")
@@ -45,17 +47,37 @@ kotlin {
         val iosTest by getting
     }
 
-    val packForXcode by tasks.creating(Sync::class) {
+    val assembleIosFrameworks by tasks.registering(FatFrameworkTask::class) {
         val mode = System.getenv("CONFIGURATION") ?: "DEBUG"
-        val framework = ios.binaries.getFramework(mode)
-        val targetDir = File(buildDir, "xcode-frameworks")
+        val frameworks = kotlin.targets
+            .filterIsInstance<KotlinNativeTarget>()
+            .filter { it.name.contains("ios", ignoreCase = true) }
+            .map { it.binaries.getFramework(mode) }
+        baseName = frameworks.random().baseName
+        destinationDir = File(buildDir, "ios-frameworks")
 
         group = "build"
-        dependsOn(framework.linkTask)
+        dependsOn(frameworks.map(Framework::linkTask))
         inputs.property("mode", mode)
+        from(frameworks)
+    }
 
-        from({ framework.outputDirectory })
-        into(targetDir)
+    val generateIosArtefacts by tasks.registering(Zip::class) {
+        dependsOn(assembleIosFrameworks)
+        from(assembleIosFrameworks)
+        destinationDirectory.set(layout.buildDirectory.dir("ios-artefact"))
+        archiveBaseName.set(assembleIosFrameworks.map { it.fatFrameworkDir.name })
+        doLast {
+            val jsonFileName = assembleIosFrameworks.map { "${it.baseName}.json" }
+            val jsonFile = destinationDirectory.file(jsonFileName).get().asFile
+            jsonFile.writeText(
+                """
+                    {
+                        "$VERSION_NAME": "file://${archiveFile.get().asFile.absolutePath}"
+                    }
+                """.trimIndent()
+            )
+        }
     }
 }
 
@@ -83,34 +105,6 @@ multiplatformSwiftPackage {
     distributionMode { remote(remoteReleaseDir) }
 }
 
-val generateIosArtefacts by  tasks.creating(Sync::class) {
-    val outputDir = File(buildDir, "ios-framework")
-    dependsOn("createSwiftPackage")
-    from(swiftPackageDirectory)
-    into(outputDir)
-    doLast {
-        val zipFile = outputDir.listFiles { f: File -> f.extension == "zip" }?.firstOrNull()
-        if (zipFile != null) {
-            File(outputDir, "Shared.json")
-                .writer()
-                .use {
-                    it.write("""
-                    {
-                        "$VERSION_NAME": "$remoteReleaseDir/${zipFile.name}"
-                    }
-                """.trimIndent())
-                }
-        }
-    }
-}
-
-//val packForCarthage by tasks.registering(Zip::class) {
-//    val createXCFramework by tasks.getting(Exec::class)
-//    dependsOn(createXCFramework)
-//    from({ "$buildDir/swift-package" })
-//    archiveBaseName.set("Shared.xcframework.zip")
-//    destinationDirectory.set(File(buildDir, "carthage-frameworks"))
-//}
 
 //tasks.getByName("build").dependsOn(packForXcode)
-tasks.getByName("build").dependsOn("createSwiftPackage")
+// tasks.getByName("build").dependsOn("createSwiftPackage")
