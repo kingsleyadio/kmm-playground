@@ -1,3 +1,4 @@
+import com.android.build.gradle.internal.tasks.factory.dependsOn
 import org.jetbrains.kotlin.gradle.plugin.mpp.Framework
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
 import org.jetbrains.kotlin.gradle.tasks.FatFrameworkTask
@@ -5,7 +6,6 @@ import org.jetbrains.kotlin.gradle.tasks.FatFrameworkTask
 plugins {
     kotlin("multiplatform")
     id("com.android.library")
-    id("com.chromaticnoise.multiplatform-swiftpackage") version "2.0.3"
 }
 
 kotlin {
@@ -46,39 +46,6 @@ kotlin {
         val iosMain by getting
         val iosTest by getting
     }
-
-    val assembleIosFrameworks by tasks.registering(FatFrameworkTask::class) {
-        val mode = System.getenv("CONFIGURATION") ?: "DEBUG"
-        val frameworks = kotlin.targets
-            .filterIsInstance<KotlinNativeTarget>()
-            .filter { it.name.contains("ios", ignoreCase = true) }
-            .map { it.binaries.getFramework(mode) }
-        baseName = frameworks.random().baseName
-        destinationDir = File(buildDir, "ios-frameworks")
-
-        group = "build"
-        dependsOn(frameworks.map(Framework::linkTask))
-        inputs.property("mode", mode)
-        from(frameworks)
-    }
-
-    val generateIosArtefacts by tasks.registering(Zip::class) {
-        dependsOn(assembleIosFrameworks)
-        from(assembleIosFrameworks)
-        destinationDirectory.set(layout.buildDirectory.dir("ios-artefact"))
-        archiveBaseName.set(assembleIosFrameworks.map { it.fatFrameworkDir.name })
-        doLast {
-            val jsonFileName = assembleIosFrameworks.map { "${it.baseName}.json" }
-            val jsonFile = destinationDirectory.file(jsonFileName).get().asFile
-            jsonFile.writeText(
-                """
-                    {
-                        "$VERSION_NAME": "file://${archiveFile.get().asFile.absolutePath}"
-                    }
-                """.trimIndent()
-            )
-        }
-    }
 }
 
 android {
@@ -90,21 +57,46 @@ android {
     }
 }
 
-val VERSION_NAME: String by project
-val swiftPackageDirectory = File(buildDir, "swift-package")
-val remoteReleaseDir = "https://github.com/kingsleyadio/kmm-playground/releases/download/$VERSION_NAME"
+val configurationMode = System.getenv("CONFIGURATION") ?: "DEBUG"
 
-multiplatformSwiftPackage {
-    swiftToolsVersion("5.3")
-    targetPlatforms {
-        iOS { v("13") }
-    }
-    outputDirectory(swiftPackageDirectory)
-//    version =  VERSION_NAME
-    zipFileName("Shared.xcframework")
-    distributionMode { remote(remoteReleaseDir) }
+val assembleIosFrameworks by tasks.registering(FatFrameworkTask::class) {
+    val frameworks = kotlin.targets
+        .filterIsInstance<KotlinNativeTarget>()
+        .filter { it.name.contains("ios", ignoreCase = true) }
+        .map { it.binaries.getFramework(configurationMode) }
+    baseName = frameworks.random().baseName
+    destinationDir = File(buildDir, "ios-frameworks")
+
+    group = "build"
+    dependsOn(frameworks.map(Framework::linkTaskProvider))
+    inputs.property("mode", configurationMode)
+    from(frameworks)
 }
 
+val generateIosArtefacts by tasks.registering(Zip::class) {
+    group = "build"
+    dependsOn(assembleIosFrameworks)
+    from(assembleIosFrameworks)
+    destinationDirectory.set(layout.buildDirectory.dir("ios-artefacts"))
+    archiveBaseName.set(assembleIosFrameworks.map { it.fatFrameworkDir.name })
+    doLast {
+        val VERSION_NAME: String by project
+        val remoteDownloadDir = "https://github.com/kingsleyadio/kmm-playground/releases/download"
+        val artefactLocation = when (configurationMode) {
+            "DEBUG" -> "file://${archiveFile.get().asFile.absolutePath}"
+            else -> "$remoteDownloadDir/$VERSION_NAME/${archiveFileName.get()}"
+        }
 
-//tasks.getByName("build").dependsOn(packForXcode)
-// tasks.getByName("build").dependsOn("createSwiftPackage")
+        val jsonFileName = assembleIosFrameworks.map { "${it.baseName}.json" }
+        val jsonFile = destinationDirectory.file(jsonFileName).get().asFile
+        jsonFile.writeText(
+            """
+                {
+                    "$VERSION_NAME": "$artefactLocation"
+                }
+            """.trimIndent()
+        )
+    }
+}
+
+tasks.named("build").dependsOn(generateIosArtefacts)
