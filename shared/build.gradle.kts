@@ -89,13 +89,17 @@ val generateIosArtefacts by tasks.registering(Zip::class) {
 
         val jsonFileName = assembleIosFrameworks.map { "${it.baseName}.json" }
         val jsonFile = destinationDirectory.file(jsonFileName).get().asFile
-        jsonFile.writeText(
-            """
-                {
-                    "$VERSION_NAME": "$artefactLocation"
-                }
-            """.trimIndent()
-        )
+        jsonFile.writeText("{\n    \"$VERSION_NAME\": \"$artefactLocation\"\n}")
+
+        // Alt: update a $framework.json file at the root of the project for Carthage support
+        val gson = com.google.gson.GsonBuilder().setPrettyPrinting().create()
+        val jsonF = rootProject.file(jsonFileName)
+        val json = when {
+            jsonF.exists() -> gson.fromJson(jsonF.readText(), com.google.gson.JsonObject::class.java).asJsonObject
+            else -> com.google.gson.JsonObject()
+        }
+        json.addProperty(VERSION_NAME, artefactLocation)
+        jsonF.writeText(gson.toJson(json))
     }
 }
 
