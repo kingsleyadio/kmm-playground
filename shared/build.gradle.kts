@@ -1,6 +1,7 @@
 import com.android.build.gradle.internal.tasks.factory.dependsOn
 import org.jetbrains.kotlin.gradle.plugin.mpp.Framework
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
+import org.jetbrains.kotlin.gradle.plugin.mpp.NativeBuildType
 import org.jetbrains.kotlin.gradle.tasks.FatFrameworkTask
 
 plugins {
@@ -8,15 +9,17 @@ plugins {
     id("com.android.library")
 }
 
-val DEBUG = "DEBUG"
-val configurationMode = System.getenv("CONFIGURATION") ?: DEBUG
+val configurationMode = when (System.getenv("CONFIGURATION")) {
+    "RELEASE" -> NativeBuildType.RELEASE
+    else -> NativeBuildType.DEBUG
+}
 
 kotlin {
     android()
 
     val iosTarget: (String, KotlinNativeTarget.() -> Unit) -> Unit = when (configurationMode) {
-        DEBUG -> { name, configure -> iosX64(name, configure) }
-        else -> ::ios
+        NativeBuildType.RELEASE -> ::ios
+        else -> { name, configure -> iosX64(name, configure) }
     }
 
     iosTarget("ios") {
@@ -83,8 +86,8 @@ val generateIosArtefacts by tasks.registering(Zip::class) {
         val VERSION_NAME: String by project
         val remoteDownloadDir = "https://github.com/kingsleyadio/kmm-playground/releases/download"
         val artefactLocation = when (configurationMode) {
-            "DEBUG" -> "file://${archiveFile.get().asFile.absolutePath}"
-            else -> "$remoteDownloadDir/$VERSION_NAME/${archiveFileName.get()}"
+            NativeBuildType.RELEASE -> "$remoteDownloadDir/$VERSION_NAME/${archiveFileName.get()}"
+            else -> "file://${archiveFile.get().asFile.absolutePath}"
         }
 
         val jsonFileName = assembleIosFrameworks.map { "${it.baseName}.json" }
