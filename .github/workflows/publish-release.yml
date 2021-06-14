@@ -29,7 +29,6 @@ jobs:
           echo "Github username: ${GITHUB_ACTOR}"
           ./gradlew clean -PVERSION_NAME=${NEW_VERSION} -x test -x lint generateIosArtefacts
         env:
-          SDK_NAME: iphoneos
           CONFIGURATION: RELEASE
       - name: Upload Release Asset
         id: upload-release-asset
@@ -51,5 +50,6 @@ jobs:
         run: |
           git config --global user.email "adiksonline@gmail.com"
           git config --global user.name "Kingsley Adio"
+          git fetch && git checkout master
           git add *.json
           git commit -m "Update carthage file(s) [skip ci] [ci skip]" && git push origin master

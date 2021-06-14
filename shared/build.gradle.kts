@@ -8,16 +8,18 @@ plugins {
     id("com.android.library")
 }
 
+val DEBUG = "DEBUG"
+val configurationMode = System.getenv("CONFIGURATION") ?: DEBUG
+
 kotlin {
     android()
 
-    val iosTarget: (String, KotlinNativeTarget.() -> Unit) -> KotlinNativeTarget =
-        if (System.getenv("SDK_NAME")?.startsWith("iphoneos") == true)
-            ::iosArm64
-        else
-            ::iosX64
+    val iosTarget: (String, KotlinNativeTarget.() -> Unit) -> Unit = when (configurationMode) {
+        DEBUG -> { name, configure -> iosX64(name, configure) }
+        else -> ::ios
+    }
 
-    val ios = iosTarget("ios") {
+    iosTarget("ios") {
         binaries {
             framework {
                 baseName = "Shared"
@@ -56,8 +58,6 @@ android {
         targetSdkVersion(30)
     }
 }
-
-val configurationMode = System.getenv("CONFIGURATION") ?: "DEBUG"
 
 val assembleIosFrameworks by tasks.registering(FatFrameworkTask::class) {
     val frameworks = kotlin.targets
