@@ -32,7 +32,7 @@ kotlin {
     sourceSets {
         val commonMain by getting {
             dependencies {
-                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.0")
+                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.0-native-mt")
             }
         }
         val commonTest by getting {
@@ -65,7 +65,7 @@ android {
 val assembleIosFrameworks by tasks.registering(FatFrameworkTask::class) {
     val frameworks = kotlin.targets
         .filterIsInstance<KotlinNativeTarget>()
-        .filter { it.name.contains("ios", ignoreCase = true) }
+        .filter { it.name.startsWith("ios") }
         .map { it.binaries.getFramework(configurationMode) }
     baseName = frameworks.random().baseName
     destinationDir = File(buildDir, "ios-frameworks")
