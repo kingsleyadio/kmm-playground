@@ -35,12 +35,19 @@ class FlowConsumer: ObservableObject {
     private let flowCounter = FlowCounter()
 
     @Published var state: Int32 = 0
-    var closeable: Closeable?
+    private let compositeCloseable = CompositeCloseable()
 
     init() {
-        closeable = flowCounter.wrap().collect { [weak self] kInt in
+        var closeable = flowCounter.wrap().collect { [weak self] kInt in
             self?.state = kInt!.int32Value
         }
+        CounterKt.closedBy(closeable, composite: compositeCloseable)
+
+        closeable = flowCounter.wrapLastState().run(
+            onSuccess: { value in self.state = value!.int32Value },
+            onError: { throwable in NSLog("Error occurred: \(throwable)") }
+        )
+        CounterKt.closedBy(closeable, composite: compositeCloseable)
     }
 
     func increment() {
@@ -52,6 +59,6 @@ class FlowConsumer: ObservableObject {
     }
 
     deinit {
-        closeable?.close()
+        compositeCloseable.close()
     }
 }

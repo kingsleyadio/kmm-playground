@@ -3,6 +3,7 @@ package com.example.demokmm
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 
 /**
  * @author Kingsley Adio
@@ -35,4 +36,6 @@ class FlowCounter {
     }
 
     fun state(): StateFlow<Int> = state.asStateFlow()
+
+    suspend fun lastState(): Int = state.first()
 }
